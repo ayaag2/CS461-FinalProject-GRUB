@@ -220,3 +220,28 @@ tar:
 	(cd /tmp; tar cf - xv6) | gzip >xv6-rev10.tar.gz  # the next one will be 10 (9/17)
 
 .PHONY: dist-test dist clean
+
+
+# -------------------------------
+# GRUB / ISO boot experiment
+# -------------------------------
+
+GRUBDIR := iso/boot/grub
+GRUBCFG := grub/grub.cfg
+GRUBISO := xv6-grub.iso
+
+.PHONY: grub-prepare grub-iso grub-qemu grub-clean
+
+grub-prepare: kernel
+	mkdir -p $(GRUBDIR)
+	cp kernel iso/boot/kernel
+	cp $(GRUBCFG) $(GRUBDIR)/grub.cfg
+
+grub-iso: grub-prepare
+	x86_64-elf-grub-mkrescue -o xv6-grub.iso iso
+
+grub-qemu: grub-iso
+	qemu-system-x86_64 -cdrom $(GRUBISO) -boot d -serial mon:stdio
+
+grub-clean:
+	rm -rf iso $(GRUBISO)
