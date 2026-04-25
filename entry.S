@@ -117,7 +117,25 @@ entry64low:
   jmp     *%rax
 
 .global _start
-_start:
+_start = entry
+
+entry:
+  movl    %cr4, %eax
+  orl     $(CR4_PSE), %eax
+  movl    %eax, %cr4
+
+  movl    $(V2P_WO(entrypgdir)), %eax
+  movl    %eax, %cr3
+
+  movl    %cr0, %eax
+  orl     $(CR0_PG|CR0_WP), %eax
+  movl    %eax, %cr0
+
+  movl $(stack + KSTACKSIZE), %esp
+
+  mov $main, %eax
+  jmp *%eax 
+
 entry64high:
 
 # ensure data segment registers are sane

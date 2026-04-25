@@ -61,6 +61,7 @@ seginit(void)
   addr = (uint64) tss;
   gdt[0] =  (struct segdesc) {};
 
+  gdt[SEG_RESERVED] = SEG(0, 0, 0, 0, 0, 0);
   gdt[SEG_KCODE] = SEG((STA_X|STA_R), 0, 0, APP_SEG, !DPL_USER, 1);
   gdt[SEG_KDATA] = SEG(STA_W, 0, 0, APP_SEG, !DPL_USER, 0);
   gdt[SEG_UCODE32] = (struct segdesc) {}; // required by syscall/sysret

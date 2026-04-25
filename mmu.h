@@ -50,16 +50,17 @@
 #define MSR_SFMASK      0xC0000084  // syscall flag mask
 
 // various segment selectors.
-#define SEG_KCODE    1  // kernel code
-#define SEG_KDATA    2  // kernel data+stack
-#define SEG_UCODE32  3  // user data+stack
-#define SEG_UDATA    4  // user data+stack
-#define SEG_UCODE    5  // user code
-#define SEG_KCPU     6  // kernel per-cpu data
-#define SEG_TSS      7  // this process's task state
+#define SEG_RESERVED 1  // GRUB reserved
+#define SEG_KCODE    2  // kernel code
+#define SEG_KDATA    3  // kernel data+stack
+#define SEG_UCODE32  4  // user data+stack
+#define SEG_UDATA    5  // user data+stack
+#define SEG_UCODE    6  // user code
+#define SEG_KCPU     7  // kernel per-cpu data
+#define SEG_TSS      8  // this process's task state
 // cpu->gdt[NSEGS] holds the above segments.
-#define NSEGS     8
-#define CALL_GATE 9
+#define NSEGS     9
+#define CALL_GATE 10
 
 // The CS values for user and kernel space
 #define USER_CS   ((SEG_UCODE<<3)|DPL_USER)
