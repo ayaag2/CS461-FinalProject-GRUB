@@ -73,6 +73,8 @@ seginit(void)
   gdt[SEG_TSS+1] = SEG(0, addr >> 32, addr >> 48, 0, 0, 0);
 
   lgdt((void*) gdt, (NSEGS+1) * sizeof(struct segdesc));
+  loaddata(SEG_KDATA << 3);
+  loadcs(KERNEL_CS);
 
   ltr(SEG_TSS << 3);
 };

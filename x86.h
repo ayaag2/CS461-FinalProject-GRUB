@@ -75,6 +75,32 @@ lgdt(struct segdesc *p, int size)
   asm volatile("lgdt (%0)" : : "r" (pd));
 }
 
+static inline void
+loadcs(ushort sel)
+{
+  asm volatile(
+    "pushq %0\n"
+    "leaq 1f(%%rip), %%rax\n"
+    "pushq %%rax\n"
+    "lretq\n"
+    "1:\n"
+    :
+    : "r" ((uint64)sel)
+    : "rax", "memory");
+}
+
+static inline void
+loaddata(ushort sel)
+{
+  asm volatile(
+    "movw %w0, %%ds\n"
+    "movw %w0, %%es\n"
+    "movw %w0, %%ss\n"
+    :
+    : "r" (sel)
+    : "memory");
+}
+
 struct gatedesc;
 
 static inline void
