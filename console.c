@@ -28,6 +28,9 @@ static struct {
 
 static char digits[] = "0123456789abcdef";
 
+static void consolefeed(int c);
+static int consolepoll(void);
+
   static void
 print_x64(addr_t x)
 {
@@ -206,47 +209,70 @@ struct {
 
 #define C(x)  ((x)-'@')  // Control-x
 
-  void
+void
 consoleintr(int (*getc)(void))
 {
   int c;
 
   acquire(&input.lock);
   while((c = getc()) >= 0){
-    switch(c){
-    case C('Z'): // reboot
-      lidt(0,0);
-      break;
-    case C('P'):  // Process listing.
-      procdump();
-      break;
-    case C('U'):  // Kill line.
-      while(input.e != input.w &&
-          input.buf[(input.e-1) % INPUT_BUF] != '\n'){
-        input.e--;
-        consputc(BACKSPACE);
-      }
-      break;
-    case C('H'): case '\x7f':  // Backspace
-      if (input.e != input.w) {
-        input.e--;
-        consputc(BACKSPACE);
-      }
-      break;
-    default:
-      if (c != 0 && input.e-input.r < INPUT_BUF) {
-        c = (c == '\r') ? '\n' : c;
-        input.buf[input.e++ % INPUT_BUF] = c;
-        consputc(c);
-        if (c == '\n' || c == C('D') || input.e == input.r+INPUT_BUF) {
-          input.w = input.e;
-          wakeup(&input.r);
-        }
-      }
-      break;
-    }
+    consolefeed(c);
   }
   release(&input.lock);
+}
+
+static void
+consolefeed(int c)
+{
+  switch(c){
+  case C('Z'): // reboot
+    lidt(0,0);
+    break;
+  case C('P'):  // Process listing.
+    procdump();
+    break;
+  case C('U'):  // Kill line.
+    while(input.e != input.w &&
+        input.buf[(input.e-1) % INPUT_BUF] != '\n'){
+      input.e--;
+      consputc(BACKSPACE);
+    }
+    break;
+  case C('H'): case '\x7f':  // Backspace
+    if (input.e != input.w) {
+      input.e--;
+      consputc(BACKSPACE);
+    }
+    break;
+  default:
+    if (c != 0 && input.e-input.r < INPUT_BUF) {
+      c = (c == '\r') ? '\n' : c;
+      input.buf[input.e++ % INPUT_BUF] = c;
+      consputc(c);
+      if (c == '\n' || c == C('D') || input.e == input.r+INPUT_BUF) {
+        input.w = input.e;
+        wakeup(&input.r);
+      }
+    }
+    break;
+  }
+}
+
+static int
+consolepoll(void)
+{
+  int c;
+  int got = 0;
+
+  while((c = uartgetc()) >= 0){
+    consolefeed(c);
+    got = 1;
+  }
+  while((c = kbdgetc()) >= 0){
+    consolefeed(c);
+    got = 1;
+  }
+  return got;
 }
 
   int
@@ -260,12 +286,16 @@ consoleread(struct inode *ip, uint off, char *dst, int n)
   acquire(&input.lock);
   while(n > 0){
     while(input.r == input.w){
+      if(consolepoll())
+        continue;
       if (proc->killed) {
         release(&input.lock);
         ilock(ip);
         return -1;
       }
-      sleep(&input.r, &input.lock);
+      release(&input.lock);
+      microdelay(50);
+      acquire(&input.lock);
     }
     c = input.buf[input.r++ % INPUT_BUF];
     if (c == C('D')) {  // EOF

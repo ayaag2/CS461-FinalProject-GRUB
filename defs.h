@@ -76,6 +76,7 @@ void            kinit1(void*, void*);
 void            kinit2();
 
 // kbd.c
+int             kbdgetc(void);
 void            kbdintr(void);
 
 // lapic.c
@@ -169,6 +170,7 @@ void            uartearlyinit(void);
 void            uartinit(void);
 void            uartintr(void);
 void            uartputc(int);
+int             uartgetc(void);
 
 // vm.c
 void            seginit(void);

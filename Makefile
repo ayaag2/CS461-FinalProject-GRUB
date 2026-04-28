@@ -128,8 +128,9 @@ clean:
 	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
 	*.o *.d *.asm *.sym vectors.S bootblock entryother \
 	initcode initcode.out kernel xv6.img fs.img kernelmemfs mkfs \
-	.gdbinit .depend \
+	.gdbinit .depend $(GRUBISO) $(GRUBVARS) \
 	_*
+	rm -rf iso
 
 # make a printout
 FILES = $(shell grep -v '^\#' runoff.list)
@@ -220,3 +221,44 @@ tar:
 	(cd /tmp; tar cf - xv6) | gzip >xv6-rev10.tar.gz  # the next one will be 10 (9/17)
 
 .PHONY: dist-test dist clean
+
+
+# -------------------------------
+# GRUB / ISO boot experiment
+# -------------------------------
+
+GRUBDIR := iso/boot/grub
+GRUBCFG := grub/grub.cfg
+GRUBISO := xv6-grub.iso
+GRUBKERNEL := kernelmemfs
+GRUBVARS := grub-vars.fd
+GRUB_UEFI_CODE := $(firstword $(wildcard /opt/homebrew/opt/qemu/share/qemu/edk2-x86_64-code.fd /opt/homebrew/Cellar/qemu/*/share/qemu/edk2-x86_64-code.fd /usr/share/OVMF/OVMF_CODE.fd /usr/share/qemu/edk2-x86_64-code.fd))
+GRUB_UEFI_VARS := $(firstword $(wildcard /opt/homebrew/opt/qemu/share/qemu/edk2-x86_64-vars.fd /opt/homebrew/opt/qemu/share/qemu/edk2-i386-vars.fd /opt/homebrew/Cellar/qemu/*/share/qemu/edk2-x86_64-vars.fd /opt/homebrew/Cellar/qemu/*/share/qemu/edk2-i386-vars.fd /usr/share/OVMF/OVMF_VARS.fd /usr/share/qemu/edk2-x86_64-vars.fd))
+
+.PHONY: grub-check grub-prepare grub-iso grub-qemu grub-qemu-nox grub-clean
+
+grub-check: $(GRUBKERNEL)
+	x86_64-elf-grub-file --is-x86-multiboot $(GRUBKERNEL)
+
+grub-prepare: grub-check
+	mkdir -p $(GRUBDIR)
+	cp $(GRUBKERNEL) iso/boot/kernel
+	cp $(GRUBCFG) $(GRUBDIR)/grub.cfg
+
+grub-iso: grub-prepare
+	x86_64-elf-grub-mkrescue -o $(GRUBISO) iso
+
+grub-qemu: grub-iso
+	test -n "$(GRUB_UEFI_CODE)" || (echo "Missing UEFI firmware image for QEMU."; false)
+	test -n "$(GRUB_UEFI_VARS)" || (echo "Missing UEFI variable store template for QEMU."; false)
+	cp $(GRUB_UEFI_VARS) $(GRUBVARS)
+	$(QEMU) -cpu qemu64,+rdtscp -nic none -cdrom $(GRUBISO) -boot d -serial mon:stdio -smp sockets=$(CPUS) -m 512 -drive if=pflash,format=raw,readonly=on,file=$(GRUB_UEFI_CODE) -drive if=pflash,format=raw,file=$(GRUBVARS)
+
+grub-qemu-nox: grub-iso
+	test -n "$(GRUB_UEFI_CODE)" || (echo "Missing UEFI firmware image for QEMU."; false)
+	test -n "$(GRUB_UEFI_VARS)" || (echo "Missing UEFI variable store template for QEMU."; false)
+	cp $(GRUB_UEFI_VARS) $(GRUBVARS)
+	$(QEMU) -nographic -cpu qemu64,+rdtscp -nic none -cdrom $(GRUBISO) -boot d -serial mon:stdio -monitor none -smp sockets=$(CPUS) -m 512 -action reboot=shutdown -drive if=pflash,format=raw,readonly=on,file=$(GRUB_UEFI_CODE) -drive if=pflash,format=raw,file=$(GRUBVARS)
+
+grub-clean:
+	rm -rf iso $(GRUBISO) $(GRUBVARS)

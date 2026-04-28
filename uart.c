@@ -50,8 +50,14 @@ uartinit(void)
   if(!uart)
     return;
 
-  // Acknowledge pre-existing interrupt conditions;
-  // enable interrupts.
+  // Re-establish the receive interrupt configuration after firmware/GRUB
+  // handoff so the serial console keeps delivering input events.
+  outb(COM1+3, 0x03);    // 8 data bits, 1 stop bit, parity off.
+  outb(COM1+2, 0);       // FIFO off, matching early init.
+  outb(COM1+4, 0x0B);    // IRQ enable + RTS/DTR asserted.
+  outb(COM1+1, 0x01);    // Enable receive interrupts.
+
+  // Acknowledge pre-existing interrupt conditions.
   inb(COM1+2);
   inb(COM1+0);
   ioapicenable(IRQ_COM1, 0);
@@ -69,7 +75,7 @@ uartputc(int c)
   outb(COM1+0, c);
 }
 
-static int
+int
 uartgetc(void)
 {
   if(!uart)
